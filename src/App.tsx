@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
-import { ArrowLeft, ArrowRight, Bike, Briefcase, BusFront, CarFront, Check, ChevronDown, CircleDollarSign, Clock3, Copy, Equal, Footprints, Fuel, Gift, Heart, Home, Info, Laptop, LockKeyhole, ParkingCircle, Plus, RotateCcw, Sparkles, SunMedium, TrendingDown, TrendingUp, WalletCards, X, Zap } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Bike, Briefcase, BusFront, CarFront, Check, ChevronDown, CircleDollarSign, Clock3, Copy, Equal, Footprints, Fuel, Gift, Globe2, Heart, Home, Info, Laptop, LockKeyhole, ParkingCircle, Plus, RotateCcw, Sparkles, SunMedium, TrendingDown, TrendingUp, WalletCards, X, Zap } from 'lucide-react'
 import type { AppData, JobInput, JobResult, RatingKey, Transport } from './types'
 import { calculateJob, requiredSalaryPerPayment } from './calculations'
 import { defaultData, exampleData, restartData } from './data'
@@ -7,6 +7,7 @@ import { clearData, loadData, saveData } from './storage'
 import { validateJob, validateSituation, type Errors } from './validation'
 import { Field, NumberInput, Select, Toggle } from './components'
 import { analyticsConfigured, capture, getAnalyticsConsent, initializeAnalytics, setAnalyticsConsent, type AnalyticsConsent } from './analytics'
+import { translatedValue, useLocalization, type Language } from './i18n'
 
 const ratingLabels: Record<RatingKey, string> = { interest: 'Interesse', growth: 'Entwicklung', flexibility: 'Flexibilität', environment: 'Arbeitsumfeld', stability: 'Stabilität' }
 const transportOptions: { value: Transport; label: string; icon: typeof CarFront }[] = [
@@ -21,6 +22,14 @@ const jobName = (job: JobInput, fallback: string) => job.position.trim() || job.
 
 function Logo() { return <a href="/home" className="jobsi-logo" aria-label="jobsi Startseite"><img src="/jobsi-logo-120.webp" srcSet="/jobsi-logo-120.webp 120w, /jobsi-logo.webp 240w" sizes="(max-width: 760px) 100px, 118px" alt="jobsi" width="120" height="49" /></a> }
 
+function savedLanguage(): Language {
+  try {
+    const saved = localStorage.getItem('jobsi-language')
+    if (saved === 'en' || saved === 'sq') return saved
+  } catch { /* local storage may be blocked */ }
+  return 'de'
+}
+
 function App() {
   const initial = useMemo(loadData, [])
   const [data, setData] = useState(initial.data)
@@ -28,6 +37,7 @@ function App() {
   const [errors, setErrors] = useState<Errors>({})
   const [storageWarning, setStorageWarning] = useState(initial.warning ?? '')
   const [heartMessageOpen, setHeartMessageOpen] = useState(false)
+  const [language, setLanguage] = useState<Language>(savedLanguage)
   const [analyticsConsent, setConsentState] = useState<AnalyticsConsent>(getAnalyticsConsent)
   const [analyticsSettingsOpen, setAnalyticsSettingsOpen] = useState(() => analyticsConfigured && getAnalyticsConsent() === null)
   const appRef = useRef<HTMLElement>(null)
@@ -35,6 +45,12 @@ function App() {
   const resultsTracked = useRef(false)
   const current = useMemo(() => calculateJob(data.current, data.situation, data.weights), [data])
   const offer = useMemo(() => calculateJob(data.offer, data.situation, data.weights), [data])
+
+  useLocalization(language)
+
+  useEffect(() => {
+    try { localStorage.setItem('jobsi-language', language) } catch { /* local storage may be blocked */ }
+  }, [language])
 
   useEffect(() => {
     const timeout = window.setTimeout(() => { if (!saveData(data)) setStorageWarning('Lokales Speichern ist blockiert. Deine Eingaben gehen beim Schliessen verloren.') }, 300)
@@ -100,8 +116,8 @@ function App() {
     capture('step_completed', { step: step === 0 ? 'current_job' : 'new_job' })
     moveTo(step + 1)
   }
-  const reset = () => { if (!window.confirm('Restart löscht alle Eingaben und setzt sämtliche Werte auf 0. Fortfahren?')) return; clearData(); setData(restartData()); comparisonStarted.current = false; moveTo(0) }
-  const loadExample = () => { if (!window.confirm('Deine Eingaben durch ein fiktives Beispiel ersetzen?')) return; setData(exampleData()); moveTo(2) }
+  const reset = () => { if (!window.confirm(translatedValue('Restart löscht alle Eingaben und setzt sämtliche Werte auf 0. Fortfahren?', language))) return; clearData(); setData(restartData()); comparisonStarted.current = false; moveTo(0) }
+  const loadExample = () => { if (!window.confirm(translatedValue('Deine Eingaben durch ein fiktives Beispiel ersetzen?', language))) return; setData(exampleData()); moveTo(2) }
   const chooseAnalytics = (next: Exclude<AnalyticsConsent, null>) => {
     setAnalyticsConsent(next)
     setConsentState(next)
@@ -109,7 +125,7 @@ function App() {
   }
 
   return <div id="top">
-    <header className="site-header"><Logo /><div className="header-actions"><span><LockKeyhole size={15} /> Bleibt bei dir</span><button data-analytics="restart_header" onClick={reset}><RotateCcw /> Restart</button></div></header>
+    <header className="site-header"><Logo /><div className="header-actions"><span className="local-note"><LockKeyhole size={15} /> Bleibt bei dir</span><label className="language-picker"><Globe2 aria-hidden="true" /><span>Sprache</span><select aria-label="Sprache" value={language} onChange={(event) => setLanguage(event.target.value as Language)}><option value="de">DE</option><option value="en">EN</option><option value="sq">SQ</option></select></label><button data-analytics="restart_header" onClick={reset}><RotateCcw /><span className="restart-label">Restart</span></button></div></header>
     <main>
       <section className="intro"><div className="intro-kicker"><Sparkles size={15} /> Lohn ist nicht alles. Zum Glück.</div><h1>Job vergleichen.<br /><span>Mehr vom Leben haben.</span></h1><p>Mehr Gehalt klingt gut. Aber was bleibt nach Fahrtkosten und Arbeitsweg wirklich übrig? Vergleiche deinen aktuellen Job mit einem neuen Angebot und entdecke, welcher dir mehr Geld und Freizeit lässt.</p></section>
       <section className="tool-shell" ref={appRef}>
