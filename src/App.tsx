@@ -20,7 +20,7 @@ const fmt = (value: number, currency: string, digits = 0) => new Intl.NumberForm
 const n = (value: number, digits = 0) => new Intl.NumberFormat('de-CH', { maximumFractionDigits: digits }).format(value)
 const jobName = (job: JobInput, fallback: string) => job.position.trim() || job.company.trim() || fallback
 
-function Logo() { return <a href="#top" className="jobsi-logo" aria-label="jobsi Startseite"><img src={logoUrl} alt="jobsi" /></a> }
+function Logo() { return <a href="/home" className="jobsi-logo" aria-label="jobsi Startseite"><img src={logoUrl} alt="jobsi" /></a> }
 
 function App() {
   const initial = useMemo(loadData, [])
