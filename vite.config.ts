@@ -13,7 +13,7 @@ function inlineCriticalCss(): Plugin {
       let cssEntry: (typeof bundle)[string] | undefined
       for (const fileName in bundle) {
         const entry = bundle[fileName]
-        if (entry.type === 'asset' && entry.fileName.endsWith('.css')) {
+        if (entry.type === 'asset' && /\.css$/.test(entry.fileName)) {
           cssEntry = entry
           break
         }
