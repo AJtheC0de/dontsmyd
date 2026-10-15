@@ -46,4 +46,27 @@ git push -u origin main
 3. Build Command: `npm run build`; Output Directory: `dist`.
 4. Deploy auslösen und danach `jobsi.work` unter **Settings → Domains** verbinden.
 
-Die enthaltene `vercel.json` leitet direkte Aufrufe clientseitiger Routen an `index.html` weiter. Es werden keine Umgebungsvariablen benötigt.
+Die enthaltene `vercel.json` leitet direkte Aufrufe clientseitiger Routen an `index.html` weiter.
+
+## Datenschutzfreundliche Analyse
+
+Die optionale PostHog-Integration wird nur geladen, nachdem eine Person der anonymen Analyse ausdrücklich zugestimmt hat. Ohne `VITE_POSTHOG_KEY` bleibt sie vollständig deaktiviert und der Consent-Dialog wird nicht angezeigt.
+
+In Vercel konfigurieren:
+
+```bash
+VITE_POSTHOG_KEY=phc_...
+VITE_POSTHOG_HOST=https://eu.i.posthog.com
+```
+
+Im PostHog-EU-Projekt zusätzlich **Cookieless server hash mode** aktivieren. Die App deaktiviert Autocapture, automatische Seitenaufrufe, Nutzerprofile, Geolokalisierung und Session Replay. Erfasst werden ausschliesslich die definierten Funnel- und Button-Events; Formulareingaben werden nie als Event-Eigenschaften übertragen.
+
+Empfohlener Funnel:
+
+1. `app_viewed`
+2. `comparison_started`
+3. `step_completed` mit `step = current_job`
+4. `step_completed` mit `step = new_job`
+5. `results_viewed`
+
+Vor der Aktivierung müssen die Betreiberangaben, Aufbewahrungsdauer und Betroffenenrechte in einer vollständigen Datenschutzerklärung ergänzt sowie der Auftragsverarbeitungsvertrag mit PostHog abgeschlossen werden.

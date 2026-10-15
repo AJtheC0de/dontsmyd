@@ -7,6 +7,7 @@ import { defaultData, exampleData, restartData } from './data'
 import { clearData, loadData, saveData } from './storage'
 import { validateJob, validateSituation, type Errors } from './validation'
 import { Field, NumberInput, Select, Toggle } from './components'
+import { analyticsConfigured, capture, getAnalyticsConsent, initializeAnalytics, setAnalyticsConsent, type AnalyticsConsent } from './analytics'
 
 const ratingLabels: Record<RatingKey, string> = { interest: 'Interesse', growth: 'Entwicklung', flexibility: 'Flexibilität', environment: 'Arbeitsumfeld', stability: 'Stabilität' }
 const transportOptions: { value: Transport; label: string; icon: typeof CarFront }[] = [
@@ -28,7 +29,11 @@ function App() {
   const [errors, setErrors] = useState<Errors>({})
   const [storageWarning, setStorageWarning] = useState(initial.warning ?? '')
   const [heartMessageOpen, setHeartMessageOpen] = useState(false)
+  const [analyticsConsent, setConsentState] = useState<AnalyticsConsent>(getAnalyticsConsent)
+  const [analyticsSettingsOpen, setAnalyticsSettingsOpen] = useState(() => analyticsConfigured && getAnalyticsConsent() === null)
   const appRef = useRef<HTMLElement>(null)
+  const comparisonStarted = useRef(false)
+  const resultsTracked = useRef(false)
   const current = useMemo(() => calculateJob(data.current, data.situation, data.weights), [data])
   const offer = useMemo(() => calculateJob(data.offer, data.situation, data.weights), [data])
 
@@ -36,6 +41,24 @@ function App() {
     const timeout = window.setTimeout(() => { if (!saveData(data)) setStorageWarning('Lokales Speichern ist blockiert. Deine Eingaben gehen beim Schliessen verloren.') }, 300)
     return () => window.clearTimeout(timeout)
   }, [data])
+
+  useEffect(() => { if (analyticsConsent === 'accepted') void initializeAnalytics() }, [analyticsConsent])
+
+  useEffect(() => {
+    if (step !== 2) { resultsTracked.current = false; return }
+    if (analyticsConsent !== 'accepted') return
+    if (!resultsTracked.current) { resultsTracked.current = true; capture('results_viewed') }
+  }, [analyticsConsent, step])
+
+  useEffect(() => {
+    const root = document.getElementById('top')
+    const trackButton = (event: MouseEvent) => {
+      const target = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-analytics]') : null
+      if (target?.dataset.analytics) capture('button_clicked', { button: target.dataset.analytics })
+    }
+    root?.addEventListener('click', trackButton)
+    return () => root?.removeEventListener('click', trackButton)
+  }, [])
 
   useEffect(() => {
     let alreadyShown = false
@@ -57,6 +80,12 @@ function App() {
     try { sessionStorage.setItem('jobsi-heart-message', 'shown') } catch { /* session storage may be blocked */ }
   }
 
+  const markComparisonStarted = () => {
+    if (analyticsConsent !== 'accepted') return
+    if (comparisonStarted.current) return
+    comparisonStarted.current = true
+    capture('comparison_started')
+  }
   const moveTo = (next: number) => { setStep(next); setErrors({}); window.setTimeout(() => appRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 20) }
   const updateJob = (which: 'current' | 'offer', patch: Partial<JobInput>) => setData((old) => ({ ...old, [which]: { ...old[which], ...patch } }))
   const validateAndContinue = () => {
@@ -65,32 +94,50 @@ function App() {
     const result = step === 0 ? current : offer
     if (result.boundHours > 365 * (24 - data.situation.sleepHours)) found.extraHoursWeekly = 'Das übersteigt deine gesamte wache Zeit im Jahr.'
     setErrors(found)
-    if (!Object.keys(found).length) moveTo(step + 1)
+    if (Object.keys(found).length) {
+      capture('step_validation_failed', { step: step === 0 ? 'current_job' : 'new_job', error_count: Object.keys(found).length })
+      return
+    }
+    capture('step_completed', { step: step === 0 ? 'current_job' : 'new_job' })
+    moveTo(step + 1)
   }
-  const reset = () => { if (!window.confirm('Restart löscht alle Eingaben und setzt sämtliche Werte auf 0. Fortfahren?')) return; clearData(); setData(restartData()); moveTo(0) }
+  const reset = () => { if (!window.confirm('Restart löscht alle Eingaben und setzt sämtliche Werte auf 0. Fortfahren?')) return; clearData(); setData(restartData()); comparisonStarted.current = false; moveTo(0) }
   const loadExample = () => { if (!window.confirm('Deine Eingaben durch ein fiktives Beispiel ersetzen?')) return; setData(exampleData()); moveTo(2) }
+  const chooseAnalytics = (next: Exclude<AnalyticsConsent, null>) => {
+    setAnalyticsConsent(next)
+    setConsentState(next)
+    setAnalyticsSettingsOpen(false)
+  }
 
   return <div id="top">
-    <header className="site-header"><Logo /><div className="header-actions"><span><LockKeyhole size={15} /> Bleibt bei dir</span><button onClick={reset}><RotateCcw /> Restart</button></div></header>
+    <header className="site-header"><Logo /><div className="header-actions"><span><LockKeyhole size={15} /> Bleibt bei dir</span><button data-analytics="restart_header" onClick={reset}><RotateCcw /> Restart</button></div></header>
     <main>
       <section className="intro"><div className="intro-kicker"><Sparkles size={15} /> Lohn ist nicht alles. Zum Glück.</div><h1>Neuer Job.<br /><span>Besseres Leben?</span></h1><p>Erfahre, ob sich dein Jobwechsel wirklich lohnt – für dein Konto und deine Freizeit.</p></section>
       <section className="tool-shell" ref={appRef}>
         <nav className="stepper" aria-label="Fortschritt">{steps.map((label, index) => <div key={label} className={index === step ? 'active' : index < step ? 'done' : ''}><span>{index < step ? <Check size={16} /> : index + 1}</span><b>{label}</b>{index < steps.length - 1 && <i />}</div>)}</nav>
         {storageWarning && <div className="inline-warning" role="status"><Info size={17} />{storageWarning}</div>}
-        {step < 2 && <div className="form-card">
+        {step < 2 && <div className="form-card" onPointerDownCapture={markComparisonStarted} onChangeCapture={markComparisonStarted}>
           <div className="form-title"><span>{step === 0 ? '01' : '02'}</span><div><h2>{step === 0 ? 'Was machst du gerade?' : 'Und was steht zur Auswahl?'}</h2><p>{step === 0 ? 'Trag deinen aktuellen Job ein. Ungefähr reicht für den Anfang.' : 'Jetzt dein neues Angebot. Dann schauen wir, was sich für dich verändert.'}</p></div></div>
-          {step === 1 && <button className="copy-button" onClick={() => setData((old) => ({ ...old, offer: { ...old.current } }))}><Copy size={16} /> Angaben vom aktuellen Job übernehmen</button>}
+          {step === 1 && <button className="copy-button" data-analytics="copy_current_job" onClick={() => setData((old) => ({ ...old, offer: { ...old.current } }))}><Copy size={16} /> Angaben vom aktuellen Job übernehmen</button>}
           {step === 0 && <Assumptions data={data} setData={setData} errors={errors} />}
           <JobForm job={step === 0 ? data.current : data.offer} update={(patch) => updateJob(step === 0 ? 'current' : 'offer', patch)} errors={errors} currency={data.situation.currency} salaryPeriod={data.situation.salaryPeriod} salaryKind={data.situation.salaryKind} updateSalaryMode={(patch) => setData((old) => ({ ...old, situation: { ...old.situation, ...patch } }))} />
-          <div className="form-actions">{step === 1 && <button className="round-button back" onClick={() => moveTo(0)}><ArrowLeft /> Zurück</button>}<button className="round-button primary" onClick={validateAndContinue}>{step === 0 ? 'Weiter zum neuen Job' : 'Vergleich ansehen'} {step === 0 ? <ArrowRight /> : <Sparkles />}</button></div>
+          <div className="form-actions">{step === 1 && <button className="round-button back" data-analytics="back_to_current_job" onClick={() => moveTo(0)}><ArrowLeft /> Zurück</button>}<button className="round-button primary" data-analytics={step === 0 ? 'continue_to_new_job' : 'view_comparison'} onClick={validateAndContinue}>{step === 0 ? 'Weiter zum neuen Job' : 'Vergleich ansehen'} {step === 0 ? <ArrowRight /> : <Sparkles />}</button></div>
         </div>}
         {step === 2 && <Results data={data} setData={setData} current={current} offer={offer} onEdit={() => moveTo(0)} onReset={reset} />}
       </section>
-      <div className="below-tool"><button onClick={loadExample}>Fiktives Beispiel ansehen</button><span><LockKeyhole size={14} /> Keine Anmeldung. Kein Tracking. Keine Übermittlung.</span></div>
+      <div className="below-tool"><button data-analytics="load_example" onClick={loadExample}>Fiktives Beispiel ansehen</button><span><LockKeyhole size={14} /> Keine Anmeldung. Deine Eingaben bleiben lokal.</span></div>
     </main>
-    <footer><Logo /><p>Ein ehrlicher Vergleich auf Basis deiner Angaben.</p><span>© {new Date().getFullYear()} jobsi</span></footer>
+    <footer><Logo /><p>Ein ehrlicher Vergleich auf Basis deiner Angaben.</p>{analyticsConfigured && <button className="privacy-button" onClick={() => setAnalyticsSettingsOpen(true)}>Datenschutz & Analyse</button>}<span>© {new Date().getFullYear()} jobsi</span></footer>
     {heartMessageOpen && <div className="heart-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeHeartMessage() }}><section className="heart-modal" role="dialog" aria-modal="true" aria-labelledby="heart-message-title"><button className="heart-close" onClick={closeHeartMessage} aria-label="Hinweis schliessen"><X /></button><span className="heart-icon"><Heart fill="currentColor" /></span><small>Eine kleine Erinnerung</small><h2 id="heart-message-title">Zahlen helfen.<br />Dein Herz entscheidet.</h2><p>So hilfreich jobsi ist: Es ist nur ein Datenvergleich. Mach am Ende das, was dir dein Herz sagt. &lt;3</p><button className="round-button primary" onClick={closeHeartMessage}>Verstanden <Heart size={17} /></button></section></div>}
+    {analyticsSettingsOpen && <AnalyticsConsentPanel consent={analyticsConsent} onChoose={chooseAnalytics} />}
   </div>
+}
+
+function AnalyticsConsentPanel({ consent, onChoose }: { consent: AnalyticsConsent; onChoose: (consent: Exclude<AnalyticsConsent, null>) => void }) {
+  return <aside className="analytics-consent" role="dialog" aria-labelledby="analytics-title" aria-describedby="analytics-description">
+    <div><small>Datenschutzfreundliche Analyse</small><h2 id="analytics-title">Hilfst du uns, jobsi zu verbessern?</h2><p id="analytics-description">Mit deiner Zustimmung messen wir anonym, welche Schritte erreicht und welche wichtigen Buttons verwendet werden. Deine Job-, Lohn- und Zeitangaben werden niemals übertragen. Keine Nutzerprofile, keine Sitzungsaufzeichnungen; Verarbeitung über PostHog in der EU.</p>{consent && <p className="consent-status">Aktuelle Auswahl: <strong>{consent === 'accepted' ? 'Analyse erlaubt' : 'Analyse abgelehnt'}</strong></p>}</div>
+    <div className="analytics-actions"><button type="button" className="round-button back" onClick={() => onChoose('rejected')}>Nur notwendige</button><button type="button" className="round-button primary" onClick={() => onChoose('accepted')}>Anonyme Analyse erlauben</button></div>
+  </aside>
 }
 
 function Assumptions({ data, setData, errors }: { data: AppData; setData: Dispatch<SetStateAction<AppData>>; errors: Errors }) {
@@ -170,7 +217,7 @@ function Results({ data, setData, current, offer, onEdit, onReset }: { data: App
   return <div className="result-page">
     <div className="result-title"><span>Geschafft <Sparkles /></span><h2>Das würde sich für dich ändern.</h2><p>Keine Wertung, kein Bauchgefühl von uns – nur deine Zahlen, verständlich gemacht.</p></div>
     <div className="change-cards"><ChangeCard tone="gain" icon={<TrendingUp />} title="Das gewinnst du" items={gains} empty="Hier zeigt sich rechnerisch noch kein Vorteil." /><ChangeCard tone="loss" icon={<TrendingDown />} title="Das gibst du ab" items={losses} empty="Hier entsteht rechnerisch kein Nachteil." /><ChangeCard tone="same" icon={<Equal />} title="Das bleibt gleich" items={same} empty="Bei diesen Angaben bleibt nichts gleich." /></div>
-    <section className="comparison"><div className="comparison-head"><div><h3>Beide Jobs auf einen Blick</h3><p>{jobName(data.current, 'Aktueller Job')} <span>↔</span> {jobName(data.offer, 'Neuer Job')}</p></div><div className="period-toggle"><button className={period === 'month' ? 'active' : ''} onClick={() => setPeriod('month')}>Monat</button><button className={period === 'year' ? 'active' : ''} onClick={() => setPeriod('year')}>Jahr</button></div></div><div className="compare-labels"><span>Kennzahl</span><b>Aktueller Job</b><b>Neuer Job</b></div>
+    <section className="comparison"><div className="comparison-head"><div><h3>Beide Jobs auf einen Blick</h3><p>{jobName(data.current, 'Aktueller Job')} <span>↔</span> {jobName(data.offer, 'Neuer Job')}</p></div><div className="period-toggle"><button data-analytics="results_period_month" className={period === 'month' ? 'active' : ''} onClick={() => setPeriod('month')}>Monat</button><button data-analytics="results_period_year" className={period === 'year' ? 'active' : ''} onClick={() => setPeriod('year')}>Jahr</button></div></div><div className="compare-labels"><span>Kennzahl</span><b>Aktueller Job</b><b>Neuer Job</b></div>
       <CompareRow icon={<WalletCards />} label={isGross ? 'Bruttolohn nach Jobkosten' : 'Verfügbares Geld'} note={isGross ? 'Keine Steuern oder Abzüge geschätzt' : data.situation.fixedCostsMonthly == null ? 'Nach Jobkosten' : 'Nach Job- und Fixkosten'} a={fmt(current[moneyKey] / divisor, currency)} b={fmt(offer[moneyKey] / divisor, currency)} suffix={suffix} highlight />
       <CompareRow icon={<SunMedium />} label="Zeit für dich" note="Wache Zeit ausserhalb des Jobs, geschätzt" a={`${n(current.awakeOutsideJobHours / divisor, 1)} Std.`} b={`${n(offer.awakeOutsideJobHours / divisor, 1)} Std.`} suffix={suffix} />
       <CompareRow icon={<Clock3 />} label="Gebundene Jobzeit" note="Arbeit, gebundene Pausen und Arbeitsweg" a={`${n(current.boundHours / divisor, 1)} Std.`} b={`${n(offer.boundHours / divisor, 1)} Std.`} suffix={suffix} />
@@ -187,7 +234,7 @@ function Results({ data, setData, current, offer, onEdit, onReset }: { data: App
     <section className="salary-playground"><div className="salary-copy"><span><CircleDollarSign /> Spielerisch ausprobieren</span><h3>Ab welchem Lohn lohnt’s sich?</h3><p>Verschiebe den Regler. Dein Vergleich oben aktualisiert sich sofort.</p>{thresholdValue == null ? <strong>Schwelle nicht berechenbar</strong> : thresholdValue <= 0 ? <strong>Schwelle bereits erreicht</strong> : <strong>{fmt(thresholdValue, currency)} <small>{salaryKindLabel.toLowerCase()} {data.situation.salaryPeriod === 'monthly' ? 'pro Gehaltszahlung' : 'pro Jahr'}</small></strong>}<p className="threshold-note">Gleicher effektiver {salaryKindLabel}-Stundenlohn wie heute – keine marktübliche Lohnempfehlung.{isGross ? ' Keine Netto-Schätzung.' : ''}</p></div><div className="salary-control"><label><span>{salaryKindLabel}lohn neues Angebot</span><b>{fmt(offerSalaryValue, currency)}</b></label><input type="range" min="0" max={data.situation.salaryPeriod === 'monthly' ? 20000 : 240000} step={data.situation.salaryPeriod === 'monthly' ? 100 : 1000} value={offerSalaryValue || 0} onChange={(e) => setOfferSalary(e.target.valueAsNumber)} /><NumberInput aria-label={`${salaryKindLabel}lohn neues Angebot`} min="0" step={data.situation.salaryPeriod === 'monthly' ? 100 : 1000} value={offerSalaryValue} onChange={(e) => setOfferSalary(e.target.valueAsNumber)} /></div></section>
     <details className="method weights-panel"><summary>Persönliche Faktoren gewichten <ChevronDown /></summary><div><p>Die Gewichtung wirkt auf beide Jobs. Fehlende Bewertungen bleiben ausgeschlossen.</p>{(Object.keys(ratingLabels) as RatingKey[]).map((key) => <label key={key}><span>{ratingLabels[key]}</span><input aria-label={`Gewichtung ${ratingLabels[key]}`} type="range" min="0" max="3" step="1" value={data.weights[key]} onChange={(e) => setData((old) => ({ ...old, weights: { ...old.weights, [key]: e.target.valueAsNumber } }))} /><b>{data.weights[key]}×</b></label>)}</div></details>
     <details className="method"><summary>Wie rechnet jobsi? <ChevronDown /></summary><div><p>Wir rechnen mit 52 Wochen und 365 Tagen. Ferientage werden durch deine tatsächlichen Arbeitstage pro Woche geteilt. Zusätzliche freie Tage wie Feiertage werden separat abgezogen.</p><p>Gebundene Jobzeit umfasst das Arbeitszeitfenster abzüglich frei verfügbarer Pause, Pendelzeit, jobbedingte Zeit vor der Abfahrt und zusätzliche Stunden. Private Fixkosten gehören nicht in den effektiven Stundenlohn.</p><p>Alle Werte sind Schätzungen aus deinen Angaben. Es gibt keine Routen-, Steuer-, Brutto-Netto- oder Währungsberechnung.</p></div></details>
-    <div className="result-actions"><button className="round-button back" onClick={onEdit}><ArrowLeft /> Angaben ändern</button><button className="round-button reset" onClick={onReset}><RotateCcw /> Neu vergleichen</button><span><LockKeyhole /> Deine Angaben bleiben in diesem Browser.</span></div>
+    <div className="result-actions"><button className="round-button back" data-analytics="edit_inputs" onClick={onEdit}><ArrowLeft /> Angaben ändern</button><button className="round-button reset" data-analytics="restart_from_results" onClick={onReset}><RotateCcw /> Neu vergleichen</button><span><LockKeyhole /> Deine Angaben bleiben in diesem Browser.</span></div>
   </div>
 }
 
