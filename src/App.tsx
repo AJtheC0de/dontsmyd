@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
 import { ArrowLeft, ArrowRight, Bike, Briefcase, BusFront, CarFront, Check, ChevronDown, CircleDollarSign, Clock3, Copy, Equal, Footprints, Fuel, Gift, Heart, Home, Info, Laptop, LockKeyhole, ParkingCircle, Plus, RotateCcw, Sparkles, SunMedium, TrendingDown, TrendingUp, WalletCards, X, Zap } from 'lucide-react'
-import logoUrl from '../logo.png'
 import type { AppData, JobInput, JobResult, RatingKey, Transport } from './types'
 import { calculateJob, requiredSalaryPerPayment } from './calculations'
 import { defaultData, exampleData, restartData } from './data'
@@ -20,7 +19,7 @@ const fmt = (value: number, currency: string, digits = 0) => new Intl.NumberForm
 const n = (value: number, digits = 0) => new Intl.NumberFormat('de-CH', { maximumFractionDigits: digits }).format(value)
 const jobName = (job: JobInput, fallback: string) => job.position.trim() || job.company.trim() || fallback
 
-function Logo() { return <a href="/home" className="jobsi-logo" aria-label="jobsi Startseite"><img src={logoUrl} alt="jobsi" /></a> }
+function Logo() { return <a href="/home" className="jobsi-logo" aria-label="jobsi Startseite"><img src="/jobsi-logo-120.webp" srcSet="/jobsi-logo-120.webp 120w, /jobsi-logo.webp 240w" sizes="(max-width: 760px) 100px, 118px" alt="jobsi" width="120" height="49" /></a> }
 
 function App() {
   const initial = useMemo(loadData, [])
@@ -112,7 +111,7 @@ function App() {
   return <div id="top">
     <header className="site-header"><Logo /><div className="header-actions"><span><LockKeyhole size={15} /> Bleibt bei dir</span><button data-analytics="restart_header" onClick={reset}><RotateCcw /> Restart</button></div></header>
     <main>
-      <section className="intro"><div className="intro-kicker"><Sparkles size={15} /> Lohn ist nicht alles. Zum Glück.</div><h1>Neuer Job.<br /><span>Besseres Leben?</span></h1><p>Erfahre, ob sich dein Jobwechsel wirklich lohnt – für dein Konto und deine Freizeit.</p></section>
+      <section className="intro"><div className="intro-kicker"><Sparkles size={15} /> Lohn ist nicht alles. Zum Glück.</div><h1>Job vergleichen.<br /><span>Mehr vom Leben haben.</span></h1><p>Mehr Gehalt klingt gut. Aber was bleibt nach Fahrtkosten und Arbeitsweg wirklich übrig? Vergleiche deinen aktuellen Job mit einem neuen Angebot und entdecke, welcher dir mehr Geld und Freizeit lässt.</p></section>
       <section className="tool-shell" ref={appRef}>
         <nav className="stepper" aria-label="Fortschritt">{steps.map((label, index) => <div key={label} className={index === step ? 'active' : index < step ? 'done' : ''}><span>{index < step ? <Check size={16} /> : index + 1}</span><b>{label}</b>{index < steps.length - 1 && <i />}</div>)}</nav>
         {storageWarning && <div className="inline-warning" role="status"><Info size={17} />{storageWarning}</div>}

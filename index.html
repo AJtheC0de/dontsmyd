@@ -3,10 +3,39 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" type="image/png" href="/jobsiicon.png" />
+    <link rel="icon" type="image/png" sizes="128x128" href="/jobsiicon.png" />
+    <link rel="preload" href="/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/dm-sans-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="canonical" href="https://www.jobsi.work/home" />
     <meta name="theme-color" content="#f7f5ef" />
-    <meta name="description" content="jobsi zeigt dir, was ein Jobwechsel für dein Konto und deine Freizeit bedeutet." />
-    <title>jobsi – Neuer Job. Besseres Leben?</title>
+    <meta name="description" content="Lohnt sich dein Jobwechsel? Vergleiche zwei Stellen nach Nettolohn, Fahrtkosten, Arbeitszeit und Ferien. Kostenlos und ohne Anmeldung mit Jobsi." />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="de_CH" />
+    <meta property="og:site_name" content="Jobsi" />
+    <meta property="og:title" content="Jobs vergleichen: Gehalt, Pendeln &amp; Freizeit · Jobsi" />
+    <meta property="og:description" content="Lohnt sich dein Jobwechsel? Vergleiche zwei Stellen nach Nettolohn, Fahrtkosten, Arbeitszeit und Ferien. Kostenlos und ohne Anmeldung mit Jobsi." />
+    <meta property="og:url" content="https://www.jobsi.work/home" />
+    <meta property="og:image" content="https://www.jobsi.work/jobsiicon.png" />
+    <meta name="twitter:card" content="summary" />
+    <title>Jobs vergleichen: Gehalt, Pendeln &amp; Freizeit · Jobsi</title>
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Jobsi","url":"https://www.jobsi.work/home","applicationCategory":"FinanceApplication","operatingSystem":"Web","description":"Lohnt sich dein Jobwechsel? Vergleiche zwei Stellen nach Nettolohn, Fahrtkosten, Arbeitszeit und Ferien. Kostenlos und ohne Anmeldung mit Jobsi.","offers":{"@type":"Offer","price":"0","priceCurrency":"CHF"}}</script>
   </head>
-  <body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body>
+  <body>
+    <div id="root">
+      <div id="top">
+        <header class="site-header">
+          <a href="/home" class="jobsi-logo" aria-label="jobsi Startseite"><img src="/jobsi-logo-120.webp" srcset="/jobsi-logo-120.webp 120w, /jobsi-logo.webp 240w" sizes="(max-width: 760px) 100px, 118px" alt="jobsi" width="120" height="49" /></a>
+          <div class="header-actions"><span>Bleibt bei dir</span><button>Restart</button></div>
+        </header>
+        <main>
+          <section class="intro">
+            <div class="intro-kicker">Lohn ist nicht alles. Zum Glück.</div>
+            <h1>Job vergleichen.<br /><span>Mehr vom Leben haben.</span></h1>
+            <p>Mehr Gehalt klingt gut. Aber was bleibt nach Fahrtkosten und Arbeitsweg wirklich übrig? Vergleiche deinen aktuellen Job mit einem neuen Angebot und entdecke, welcher dir mehr Geld und Freizeit lässt.</p>
+          </section>
+        </main>
+      </div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>
