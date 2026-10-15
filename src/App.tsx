@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
-import { ArrowLeft, ArrowRight, Bike, Briefcase, BusFront, CarFront, Check, ChevronDown, CircleDollarSign, Clock3, Copy, Equal, Footprints, Fuel, Gift, Globe2, Heart, Home, Info, Laptop, LockKeyhole, ParkingCircle, Plus, RotateCcw, Sparkles, SunMedium, TrendingDown, TrendingUp, WalletCards, X, Zap } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Bike, Briefcase, BusFront, CarFront, Check, ChevronDown, CircleDollarSign, Clock3, Copy, Equal, Footprints, Fuel, Gift, Heart, Home, Info, Laptop, LockKeyhole, ParkingCircle, Plus, RotateCcw, Sparkles, SunMedium, TrendingDown, TrendingUp, WalletCards, X, Zap } from 'lucide-react'
 import type { AppData, JobInput, JobResult, RatingKey, Transport } from './types'
 import { calculateJob, requiredSalaryPerPayment } from './calculations'
 import { defaultData, exampleData, restartData } from './data'
@@ -28,6 +28,43 @@ function savedLanguage(): Language {
     if (saved === 'en' || saved === 'sq') return saved
   } catch { /* local storage may be blocked */ }
   return 'de'
+}
+
+const languageOptions: { value: Language; flag: string; label: string; code: string }[] = [
+  { value: 'de', flag: '🇨🇭', label: 'Deutsch', code: 'DE' },
+  { value: 'en', flag: '🇬🇧', label: 'English', code: 'EN' },
+  { value: 'sq', flag: '🇦🇱', label: 'Shqip', code: 'SQ' },
+]
+
+function LanguageMenu({ language, onChange }: { language: Language; onChange: (language: Language) => void }) {
+  const menuRef = useRef<HTMLDetailsElement>(null)
+  const current = languageOptions.find((option) => option.value === language) ?? languageOptions[0]
+
+  useEffect(() => {
+    const closeMenu = (event: PointerEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) menuRef.current?.removeAttribute('open')
+    }
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') menuRef.current?.removeAttribute('open')
+    }
+    document.addEventListener('pointerdown', closeMenu)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('pointerdown', closeMenu)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [])
+
+  return <details className="language-menu" ref={menuRef}>
+    <summary><span className="sr-only">Sprache</span><span className="language-flag" aria-hidden="true">{current.flag}</span><b>{current.code}</b><ChevronDown aria-hidden="true" /></summary>
+    <div className="language-options" role="menu">{languageOptions.map((option) => <button type="button" role="menuitemradio" aria-checked={language === option.value} className={language === option.value ? 'active' : ''} key={option.value} onClick={() => { onChange(option.value); menuRef.current?.removeAttribute('open') }}><span className="language-flag" aria-hidden="true">{option.flag}</span><span>{option.label}</span><small>{option.code}</small>{language === option.value && <Check aria-hidden="true" />}</button>)}</div>
+  </details>
+}
+
+function CurrencySwitch({ value, onChange }: { value: AppData['situation']['currency']; onChange: (currency: AppData['situation']['currency']) => void }) {
+  return <div className="currency-switch" role="group" aria-label="Währung">
+    {(['CHF', 'EUR'] as const).map((currency) => <button type="button" key={currency} className={value === currency ? 'active' : ''} aria-pressed={value === currency} data-analytics={`currency_${currency.toLowerCase()}`} onClick={() => onChange(currency)}>{currency}</button>)}
+  </div>
 }
 
 function App() {
@@ -125,7 +162,7 @@ function App() {
   }
 
   return <div id="top">
-    <header className="site-header"><Logo /><div className="header-actions"><span className="local-note"><LockKeyhole size={15} /> Bleibt bei dir</span><label className="language-picker"><Globe2 aria-hidden="true" /><span>Sprache</span><select aria-label="Sprache" value={language} onChange={(event) => setLanguage(event.target.value as Language)}><option value="de">DE</option><option value="en">EN</option><option value="sq">SQ</option></select></label><button data-analytics="restart_header" onClick={reset}><RotateCcw /><span className="restart-label">Restart</span></button></div></header>
+    <header className="site-header"><Logo /><div className="header-actions"><span className="local-note"><LockKeyhole size={15} /> Bleibt bei dir</span><CurrencySwitch value={data.situation.currency} onChange={(currency) => setData((old) => ({ ...old, situation: { ...old.situation, currency } }))} /><LanguageMenu language={language} onChange={setLanguage} /><button data-analytics="restart_header" onClick={reset}><RotateCcw /><span className="restart-label">Restart</span></button></div></header>
     <main>
       <section className="intro"><div className="intro-kicker"><Sparkles size={15} /> Lohn ist nicht alles. Zum Glück.</div><h1>Job vergleichen.<br /><span>Mehr vom Leben haben.</span></h1><p>Mehr Gehalt klingt gut. Aber was bleibt nach Fahrtkosten und Arbeitsweg wirklich übrig? Vergleiche deinen aktuellen Job mit einem neuen Angebot und entdecke, welcher dir mehr Geld und Freizeit lässt.</p></section>
       <section className="tool-shell" ref={appRef}>
