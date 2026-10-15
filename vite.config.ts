@@ -10,7 +10,14 @@ function inlineCriticalCss(): Plugin {
       const html = bundle['index.html']
       if (!html || html.type !== 'asset' || typeof html.source !== 'string') return
 
-      const cssEntry = Object.values(bundle).find((entry) => entry.type === 'asset' && entry.fileName.endsWith('.css'))
+      let cssEntry: (typeof bundle)[string] | undefined
+      for (const fileName in bundle) {
+        const entry = bundle[fileName]
+        if (entry.type === 'asset' && entry.fileName.endsWith('.css')) {
+          cssEntry = entry
+          break
+        }
+      }
       if (!cssEntry || cssEntry.type !== 'asset') return
 
       const css = typeof cssEntry.source === 'string' ? cssEntry.source : new TextDecoder().decode(cssEntry.source)
